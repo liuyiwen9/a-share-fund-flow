@@ -7,7 +7,6 @@ today = datetime.now().strftime("%Y-%m-%d")
 data_dir = f"docs/{today}"
 
 if not os.path.exists(f"{data_dir}/industry.csv"):
-    # 没有数据时生成空报告
     empty_result = {
         "date": today,
         "industry_top10": [],
@@ -24,40 +23,47 @@ if not os.path.exists(f"{data_dir}/industry.csv"):
     print("无数据，生成空报告")
     exit(0)
 
-# ---------- 处理行业板块 ----------
+# ---------- 行业板块 ----------
 ind = pd.read_csv(f"{data_dir}/industry.csv")
 print("行业列名:", ind.columns.tolist())
 
-# 根据实际列名提取字段
 if '行业' in ind.columns and '净额' in ind.columns:
     ind = ind.rename(columns={'行业': '板块', '净额': '资金净流入', '行业-涨跌幅': '涨跌幅'})
-    ind['散户净流入'] = "N/A"   # 该接口无散户数据
+    ind['散户净流入'] = "N/A"
     ind = ind[['板块', '资金净流入', '散户净流入', '涨跌幅']]
     ind['资金净流入'] = pd.to_numeric(ind['资金净流入'], errors='coerce')
     ind = ind.dropna(subset=['资金净流入'])
     ind_top10 = ind.nlargest(10, '资金净流入').to_dict(orient='records')
     ind_bottom10 = ind.nsmallest(10, '资金净流入').to_dict(orient='records')
 else:
-    print("行业列名不匹配，请检查")
     ind_top10, ind_bottom10 = [], []
 
-# ---------- 处理概念板块 ----------
+# ---------- 概念板块 ----------
 con = pd.read_csv(f"{data_dir}/concept.csv")
 print("概念列名:", con.columns.tolist())
 
-# 概念板块列名可能不同，自动适配
 if '净额' in con.columns:
-    # 找出名称列（大概率是 '概念' 或 '概念名称'）
-    name_col = '概念' if '概念' in con.columns else '概念名称'
-    con = con.rename(columns={name_col: '概念名称', '净额': '资金净流入', '概念-涨跌幅' if '概念-涨跌幅' in con.columns else '涨跌幅': '涨跌幅'})
+    # 确定名称列（概念数据中列名也是'行业'，我们当做概念名称）
+    name_col = '概念' if '概念' in con.columns else ('概念名称' if '概念名称' in con.columns else '行业')
+    # 确定涨跌幅列
+    change_col = '涨跌幅' if '涨跌幅' in con.columns else ('行业-涨跌幅' if '行业-涨跌幅' in con.columns else None)
+    
+    rename_map = {name_col: '概念名称', '净额': '资金净流入'}
+    if change_col:
+        rename_map[change_col] = '涨跌幅'
+    con = con.rename(columns=rename_map)
+    
     con['散户净流入'] = "N/A"
-    con = con[['概念名称', '资金净流入', '散户净流入', '涨跌幅']]
+    keep_cols = ['概念名称', '资金净流入', '散户净流入']
+    if change_col:
+        keep_cols.append('涨跌幅')
+    con = con[keep_cols]
+    
     con['资金净流入'] = pd.to_numeric(con['资金净流入'], errors='coerce')
     con = con.dropna(subset=['资金净流入'])
     con_top10 = con.nlargest(10, '资金净流入').to_dict(orient='records')
     con_bottom10 = con.nsmallest(10, '资金净流入').to_dict(orient='records')
 else:
-    print("概念数据无净额字段，跳过")
     con_top10, con_bottom10 = [], []
 
 # ---------- 北向资金 ----------
@@ -65,13 +71,12 @@ north_value = "N/A"
 try:
     north = pd.read_csv(f"{data_dir}/north.csv")
     print("北向列名:", north.columns.tolist())
-    # 常见净买入字段可能是 '净买入'、'当日净流入'、'net' 等
-    for col in ['净买入', '当日净流入', 'net', '资金净流入']:
+    for col in ['净买入', '当日净流入', 'net', '资金净流入', '净额']:
         if col in north.columns:
             north_value = north.iloc[0][col]
             break
 except Exception as e:
-    print(f"北向数据处理失败: {e}")
+    print(f"北向资金处理失败: {e}")
 
 # ---------- 大宗交易 ----------
 big_discount_count = 0
@@ -88,7 +93,7 @@ try:
 except Exception as e:
     print(f"大宗交易处理失败: {e}")
 
-# ---------- 打包输出 ----------
+# ---------- 输出 ----------
 result = {
     "date": today,
     "industry_top10": ind_top10,
