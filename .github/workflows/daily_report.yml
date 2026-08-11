@@ -2,8 +2,8 @@ name: Daily A-Share Fund Flow Report
 
 on:
   schedule:
-    # 北京时间周一到周五 16:30 → UTC 8:30
-    - cron: '30 8 * * 1-5'
+    # 北京时间周一到周五 14:30 → UTC 6:30
+    - cron: '30 6 * * 1-5'
   workflow_dispatch:   # 允许手动触发
 
 jobs:
