@@ -4,13 +4,15 @@ on:
   schedule:
     # 北京时间周一到周五 14:30 → UTC 6:30
     - cron: '30 6 * * 1-5'
-  workflow_dispatch:   # 允许手动触发
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -20,7 +22,6 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # 新增调试步骤：打印 AKshare 中所有相关函数名
       - name: Debug akshare functions
         run: python -c "import akshare as ak; funcs=[x for x in dir(ak) if 'board' in x or 'fund_flow' in x or 'north' in x or 'dzjy' in x]; print('可用函数列表:'); print('\n'.join(funcs))"
 
