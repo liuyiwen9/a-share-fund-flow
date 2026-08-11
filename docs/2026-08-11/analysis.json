@@ -1,0 +1,11 @@
+{
+  "date": "2026-08-11",
+  "industry_top10": [],
+  "industry_bottom10": [],
+  "concept_top10": [],
+  "concept_bottom10": [],
+  "north_net_flow": "N/A",
+  "big_discount_count": 0,
+  "big_discount_list": [],
+  "note": "⚠️ 数据获取失败，请检查 fetch_data.py 中的函数名是否匹配 AKshare 版本"
+}
