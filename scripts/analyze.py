@@ -6,13 +6,29 @@ from datetime import datetime
 today = datetime.now().strftime("%Y-%m-%d")
 data_dir = f"docs/{today}"
 
-if not os.path.exists(data_dir):
-    print("今日无数据")
+# 检查数据文件是否存在
+industry_file = f"{data_dir}/industry.csv"
+if not os.path.exists(industry_file):
+    # 无数据时生成一个“空报告”的 JSON，让 build_report 正常工作
+    empty_result = {
+        "date": today,
+        "industry_top10": [],
+        "industry_bottom10": [],
+        "concept_top10": [],
+        "concept_bottom10": [],
+        "north_net_flow": "N/A",
+        "big_discount_count": 0,
+        "big_discount_list": [],
+        "note": "⚠️ 数据获取失败，请检查 fetch_data.py 中的函数名是否匹配 AKshare 版本"
+    }
+    with open(f"{data_dir}/analysis.json", "w", encoding="utf-8") as f:
+        json.dump(empty_result, f, ensure_ascii=False, indent=2)
+    print("⚠️ 无数据文件，已生成空报告，网站不会报错。")
     exit(0)
 
-# ---- 处理行业板块 ----
-ind = pd.read_csv(f"{data_dir}/industry.csv")
-print("行业板块 CSV 列名：", ind.columns.tolist())   # 新增，方便查看真实列名
+# 如果有数据，从这里开始正常读取和分析...
+ind = pd.read_csv(industry_file)
+print("行业板块 CSV 列名：", ind.columns.tolist())
 
 # AKshare 这个接口的列名通常是：'板块', '今日主力净流入-净额', '今日超大单净流入-净额', '今日大单净流入-净额', '今日中单净流入-净额', '今日小单净流入-净额', '今日主力净流入-净占比', '今日涨跌幅', ... 
 # 我们优先用“主力净流入-净额”作为主力资金，如果列名不同，运行后可看列名调整
