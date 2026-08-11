@@ -83,12 +83,16 @@ con_bottom10 = con_processed.nsmallest(10, con_val_col).to_dict(orient='records'
 north_value = "N/A"
 try:
     north = pd.read_csv(f"{data_dir}/north.csv")
-    for col in ['净买入', '当日净流入', 'net', '资金净流入', '净额']:
-        if col in north.columns:
-            north_value = north.iloc[0][col]
-            break
+    if not north.empty:
+        for col in ['净买入', '当日净流入', '资金净流入', '成交净买额']:
+            if col in north.columns:
+                north_value = north.iloc[0][col]
+                break
+    else:
+        north_value = "N/A"
 except Exception as e:
     print(f"北向处理失败: {e}")
+    north_value = "N/A"
 
 # ---------- 大宗交易 ----------
 big_discount_count = 0
@@ -100,9 +104,10 @@ try:
         big = block[block['折价率'] < -8]
         big_discount_count = len(big)
         big_discount_list = big[['证券简称','成交价','收盘价','折价率']].to_dict(orient='records') if not big.empty else []
-except Exception as e:
-    print(f"大宗处理失败: {e}")
-
+except FileNotFoundError:
+    print("大宗交易文件不存在，跳过")
+    big_discount_count = 0
+    big_discount_list = []
 # ---------- 最终 JSON ----------
 result = {
     "date": today,
