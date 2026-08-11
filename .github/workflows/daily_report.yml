@@ -1,0 +1,38 @@
+name: Daily A-Share Fund Flow Report
+
+on:
+  schedule:
+    # 北京时间周一到周五 16:30 → UTC 8:30
+    - cron: '30 8 * * 1-5'
+  workflow_dispatch:   # 允许手动触发
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run fetch
+        run: python scripts/fetch_data.py
+
+      - name: Run analyze
+        run: python scripts/analyze.py
+
+      - name: Build report
+        run: python scripts/build_report.py
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add report/
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update report $(date +'%Y-%m-%d')" && git push)
