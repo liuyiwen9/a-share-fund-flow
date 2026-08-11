@@ -43,7 +43,14 @@ html_content = f"""<!DOCTYPE html>
 <body>
 <div class="container">
     <h1>📊 A股主力资金分析报告</h1>
-    <p><strong>日期：{today}</strong>  |  北向资金净流入：<span class="{'red' if data['north_net_flow'] < 0 else 'green'}">{data['north_net_flow']} 亿</span></p>
+    <p><strong>日期：{today}</strong>  |  北向资金净流入：
+    <span class="{ 
+        'red' if isinstance(data['north_net_flow'], (int, float)) and data['north_net_flow'] < 0 
+        else 'green' if isinstance(data['north_net_flow'], (int, float)) 
+        else '' 
+    }">
+    {data['north_net_flow']}{' 亿' if isinstance(data['north_net_flow'], (int, float)) else ''}
+    </span></p>
 
     <h2>🏭 行业板块主力净流入 TOP10</h2>
     {gen_table(['板块', '主力净流入(亿)', '散户净流入(亿)', '涨跌幅(%)'], data['industry_top10'], ['板块', '主力净流入', '散户净流入', '涨跌幅'])}
