@@ -12,6 +12,7 @@ if not os.path.exists(data_dir):
 
 # ---- 处理行业板块 ----
 ind = pd.read_csv(f"{data_dir}/industry.csv")
+print("行业板块 CSV 列名：", ind.columns.tolist())   # 新增，方便查看真实列名
 
 # AKshare 这个接口的列名通常是：'板块', '今日主力净流入-净额', '今日超大单净流入-净额', '今日大单净流入-净额', '今日中单净流入-净额', '今日小单净流入-净额', '今日主力净流入-净占比', '今日涨跌幅', ... 
 # 我们优先用“主力净流入-净额”作为主力资金，如果列名不同，运行后可看列名调整
@@ -47,6 +48,7 @@ ind_bottom10 = ind.nsmallest(10, '主力净流入')
 
 # ---- 处理概念板块 ----
 con = pd.read_csv(f"{data_dir}/concept.csv")
+print("概念板块 CSV 列名：", con.columns.tolist())
 # 概念板块列名类似，可以用同样的列名匹配逻辑（这里简化，假设列名一致）
 # 可以复用上面匹配到的字段名，但概念可能没有'板块'而是'概念名称'，简单处理：
 con_col_map = {}
