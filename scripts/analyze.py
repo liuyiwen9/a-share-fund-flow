@@ -1,46 +1,102 @@
 import pandas as pd
 import json
+import os
+from datetime import datetime
 
-today_str = "2026-08-11"  # 由参数传入
+today = datetime.now().strftime("%Y-%m-%d")
+data_dir = f"docs/{today}"
 
-# 读取行业
-ind = pd.read_csv(f"report/{today_str}/industry_raw.csv")
-ind['主力净流入'] = ind['超大单净流入'] + ind['大单净流入']
-ind['散户净流入'] = ind['中单净流入'] + ind['小单净流入']
-ind['主力净占比'] = (ind['主力净流入'] / ind['成交额']) * 100
+if not os.path.exists(data_dir):
+    print("今日无数据")
+    exit(0)
+
+# ---- 处理行业板块 ----
+ind = pd.read_csv(f"{data_dir}/industry.csv")
+
+# AKshare 这个接口的列名通常是：'板块', '今日主力净流入-净额', '今日超大单净流入-净额', '今日大单净流入-净额', '今日中单净流入-净额', '今日小单净流入-净额', '今日主力净流入-净占比', '今日涨跌幅', ... 
+# 我们优先用“主力净流入-净额”作为主力资金，如果列名不同，运行后可看列名调整
+# 做简单适配：尝试匹配常见列名
+col_map = {}
+for col in ind.columns:
+    if '主力净流入-净额' in col or '主力净流入' in col and '占比' not in col:
+        col_map['主力净流入'] = col
+    if '超大单净流入-净额' in col or '超大单净流入' in col:
+        col_map['超大单'] = col
+    if '大单净流入-净额' in col or '大单净流入' in col:
+        col_map['大单'] = col
+    if '中单净流入-净额' in col or '中单净流入' in col:
+        col_map['中单'] = col
+    if '小单净流入-净额' in col or '小单净流入' in col:
+        col_map['小单'] = col
+    if '主力净流入-净占比' in col or '主力净占比' in col:
+        col_map['主力净占比'] = col
+    if '涨跌幅' in col:
+        col_map['涨跌幅'] = col
+    if '板块' in col:
+        col_map['板块'] = col
+
+# 如果匹配不上，就打印列名让人检查
+if '主力净流入' not in col_map:
+    print("行业板块列名：", ind.columns.tolist())
+    raise KeyError("请根据打印的列名修改代码")
+
+ind['主力净流入'] = ind[col_map['主力净流入']]
+ind['散户净流入'] = ind[col_map['中单']] + ind[col_map['小单']]
 ind_top10 = ind.nlargest(10, '主力净流入')
 ind_bottom10 = ind.nsmallest(10, '主力净流入')
 
-# 概念同样处理
-con = pd.read_csv(f"report/{today_str}/concept_raw.csv")
-con['主力净流入'] = con['超大单净流入'] + con['大单净流入']
-con['散户净流入'] = con['中单净流入'] + con['小单净流入']
-con['主力净占比'] = (con['主力净流入'] / con['成交额']) * 100
+# ---- 处理概念板块 ----
+con = pd.read_csv(f"{data_dir}/concept.csv")
+# 概念板块列名类似，可以用同样的列名匹配逻辑（这里简化，假设列名一致）
+# 可以复用上面匹配到的字段名，但概念可能没有'板块'而是'概念名称'，简单处理：
+con_col_map = {}
+for col in con.columns:
+    if '主力净流入-净额' in col or ('主力净流入' in col and '占比' not in col):
+        con_col_map['主力净流入'] = col
+    if '中单净流入' in col:
+        con_col_map['中单'] = col
+    if '小单净流入' in col:
+        con_col_map['小单'] = col
+    if '概念' in col:
+        con_col_map['概念'] = col
+    if '涨跌幅' in col:
+        con_col_map['涨跌幅'] = col
+
+con['主力净流入'] = con[con_col_map['主力净流入']]
+con['散户净流入'] = con[con_col_map['中单']] + con[con_col_map['小单']]
 con_top10 = con.nlargest(10, '主力净流入')
 con_bottom10 = con.nsmallest(10, '主力净流入')
 
-# 北向资金
-north = pd.read_csv(f"report/{today_str}/north_flow.csv")
-north_value = north['当日净流入'].values[0] if not north.empty else 0
+# ---- 北向资金 ----
+north = pd.read_csv(f"{data_dir}/north.csv")
+north_value = north.iloc[0]['当日净流入'] if '当日净流入' in north.columns else "N/A"
 
-# 暗盘（大宗交易）分析：找出折价率 > 8% 的股票
-block = pd.read_csv(f"report/{today_str}/block_trade.csv")
+# ---- 大宗交易异动 ----
+block = pd.read_csv(f"{data_dir}/block_trade.csv")
 if not block.empty:
-    block['折价率'] = (block['成交价'] / block['收盘价'] - 1) * 100
-    big_discount = block[block['折价率'] < -8]   # 折价超过8%
+    if '成交价' in block.columns and '收盘价' in block.columns:
+        block['折价率'] = (block['成交价'] / block['收盘价'] - 1) * 100
+        big_discount = block[block['折价率'] < -8]   # 折价超8%
+    else:
+        big_discount = pd.DataFrame()
 else:
     big_discount = pd.DataFrame()
 
-# 打包成 JSON 供网页使用
+# 打包结果
 result = {
-    "date": today_str,
-    "industry_top10": ind_top10.to_dict(orient='records'),
-    "industry_bottom10": ind_bottom10.to_dict(orient='records'),
-    "concept_top10": con_top10.to_dict(orient='records'),
-    "concept_bottom10": con_bottom10.to_dict(orient='records'),
+    "date": today,
+    "industry_top10": ind_top10[['板块', '主力净流入', '散户净流入', '涨跌幅']].to_dict(orient='records'),
+    "industry_bottom10": ind_bottom10[['板块', '主力净流入', '散户净流入', '涨跌幅']].to_dict(orient='records'),
+    "concept_top10": con_top10[['概念名称', '主力净流入', '散户净流入', '涨跌幅']].to_dict(orient='records'),
+    "concept_bottom10": con_bottom10[['概念名称', '主力净流入', '散户净流入', '涨跌幅']].to_dict(orient='records'),
     "north_net_flow": north_value,
-    "big_discount_trades": big_discount.to_dict(orient='records')
+    "big_discount_count": len(big_discount),
+    "big_discount_list": big_discount[['证券简称', '成交价', '收盘价', '折价率']].to_dict(orient='records') if not big_discount.empty else []
 }
 
+with open(f"{data_dir}/analysis.json", "w", encoding="utf-8") as f:
+    json.dump(result, f, ensure_ascii=False, indent=2)
+
+print("分析完成，已生成 analysis.json")
 with open(f"report/{today_str}/analysis_result.json", "w", encoding="utf-8") as f:
     json.dump(result, f, ensure_ascii=False, indent=2)
