@@ -3,7 +3,7 @@ name: Daily-A-Share-Report
 on:
   schedule:
     # 北京时间周一到周五 14:30 → UTC 6:30
-    - cron: '30 8 * * 1-5'   # UTC 8:30 = 北京 16:30
+    - cron: '30 6 * * 1-5'   # UTC 8:30 = 北京 16:30
   workflow_dispatch:
 
 jobs:
